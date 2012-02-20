@@ -6,10 +6,14 @@
 #define NN (DIM + 2)
 
 static double phi[NN];
+static double nextphi[NN];
 static double diff[NN];
 static double nabla[NN];
 
-static GtkWidget * plane;
+static GtkWidget * w_phi;
+static double w_phi_width, w_phi_height;
+static GtkWidget * w_diff;
+static double w_diff_width, w_diff_height;
 static int play;
 
 
@@ -18,11 +22,17 @@ void init ()
   int ii;
   for (ii = 0; ii < NN; ++ii) {
     phi[ii] = NAN;
+    nextphi[ii] = NAN;
     diff[ii] = NAN;
     nabla[ii] = NAN;
   }
-  for (ii = 1; ii <= DIM; ++ii) {
-    phi[ii] = ii - 50;
+  for (ii = 1; ii < DIM / 2; ++ii) {
+    phi[ii] = ii - DIM / 4;
+    nextphi[ii] = phi[ii];
+  }
+  for (ii = DIM / 2; ii <= DIM; ++ii) {
+    phi[ii] = 3 * DIM / 4 - ii;
+    nextphi[ii] = phi[ii];
   }
 }
 
@@ -32,25 +42,27 @@ void update ()
   static const double dt = 0.01;
   int ii;
   
+  // 0. get phi from previous nextphi
   // 1. update boundary condition
   // 2. update finite difference operators
   // 3. update upwind gradient
   // 4. compute next phi
+
+  // 0. get phi from previous nextphi
+  for (ii = 1; ii <= DIM; ++ii) {
+    phi[ii] = nextphi[ii];
+  }
   
   // 1. update boundary condition
   phi[0] = phi[2];
-  phi[NN-1] = phi[NN-3];
+  phi[DIM+1] = phi[DIM-1];
   
   // 2. update finite difference operators
-  printf ("diff");
   for (ii = 0; ii <= DIM; ++ii) {
     diff[ii] = phi[ii+1] - phi[ii];
-    printf (" % 5.1f", diff[ii]);
   }
-  printf ("\n");
   
   // 3. update upwind gradient
-  printf ("nabla");
   for (ii = 1; ii <= DIM; ++ii) {
     if (diff[ii] > 0.0) {
       nabla[ii] = pow(diff[ii], 2.0);
@@ -62,24 +74,15 @@ void update ()
       nabla[ii] += pow(diff[ii-1], 2.0);
     }
     nabla[ii] = sqrt(nabla[ii]);
-    printf (" % 5.1f", nabla[ii]);
   }
-  printf ("\n");
   
   // 4. compute next phi
-  printf ("phi");
   for (ii = 1; ii <= DIM; ++ii) {
-    phi[ii] = phi[ii] - dt * nabla[ii];
-    printf (" % 5.1f", phi[ii]);
+    nextphi[ii] = phi[ii] - dt * nabla[ii];
   }
-  printf ("\n");
   
-  if (plane) {
-    gtk_widget_queue_draw (plane);
-  }
-  else {
-    g_warning ("no plane widget to draw");
-  }
+  gtk_widget_queue_draw (w_phi);
+  gtk_widget_queue_draw (w_diff);
 }
 
 
@@ -115,34 +118,105 @@ void cb_quit (GtkWidget * ww, gpointer data)
 }
 
 
-gint cb_plane_expose (GtkWidget * ww,
-		      GdkEventExpose * ee,
-		      gpointer data)
+gint cb_phi_expose (GtkWidget * ww,
+		    GdkEventExpose * ee,
+		    gpointer data)
 {
-  static double yoff = 200.0;
   cairo_t * cr = gdk_cairo_create (ee->window);
   size_t ii;
+  double const xoff = 0.0;
+  double const yoff = w_diff_height / 2.0;
+  double const xscale = w_diff_width / DIM;
+  double const yscale = - w_diff_height / 2.0 / DIM;
   
   cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
-  cairo_rectangle (cr, 0, 0, 2 * yoff, 2 * yoff);
+  cairo_rectangle (cr, 0, 0, w_phi_width, w_phi_height);
   cairo_fill (cr);
   
   cairo_set_source_rgb (cr, 0.5, 0.5, 0.5);
-  cairo_move_to (cr, 0.0, yoff);
-  cairo_line_to (cr, DIM, yoff);
+  cairo_move_to (cr, xoff, yoff);
+  cairo_line_to (cr, xoff + xscale * DIM, yoff);
   cairo_set_line_width (cr, 1.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
   cairo_stroke (cr);
   
   cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-  cairo_move_to (cr, 1.0, yoff - phi[1]);
+  cairo_move_to (cr, xoff + xscale, yoff + yscale * phi[1]);
   for (ii = 2; ii <= DIM; ++ii) {
-    cairo_line_to (cr, ii, yoff - phi[ii]);
+    cairo_line_to (cr, xoff + xscale * ii, yoff + yscale * phi[ii]);
   }
   cairo_set_line_width (cr, 2.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
   cairo_stroke (cr);
   
   cairo_destroy (cr);
   
+  return TRUE;			// TRUE to stop event propagation
+}
+
+
+gint cb_diff_expose (GtkWidget * ww,
+		     GdkEventExpose * ee,
+		     gpointer data)
+{
+  cairo_t * cr = gdk_cairo_create (ee->window);
+  size_t ii;
+  double const xoff = 0.0;
+  double const yoff = w_diff_height / 2.0;
+  double const xscale = w_diff_width / DIM;
+  double const yscale = - w_diff_height / 2.0 / 3.0;
+  
+  cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
+  cairo_rectangle (cr, 0, 0, w_diff_width, w_diff_height);
+  cairo_fill (cr);
+  
+  cairo_set_source_rgb (cr, 0.5, 0.5, 0.5);
+  cairo_move_to (cr, xoff, yoff);
+  cairo_line_to (cr, xoff + xscale * DIM, yoff);
+  cairo_set_line_width (cr, 1.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
+  cairo_stroke (cr);
+  
+  cairo_set_source_rgb (cr, 0.5, 1.0, 0.5);
+  cairo_move_to (cr, xoff + xscale, yoff + yscale * diff[1]);
+  for (ii = 2; ii <= DIM; ++ii) {
+    cairo_line_to (cr, xoff + xscale * ii, yoff + yscale * diff[ii]);
+  }
+  cairo_set_line_width (cr, 2.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
+  cairo_stroke (cr);
+  
+  cairo_set_source_rgb (cr, 1.0, 0.5, 0.5);
+  cairo_move_to (cr, xoff + xscale, yoff + yscale * nabla[1]);
+  for (ii = 2; ii <= DIM; ++ii) {
+    cairo_line_to (cr, xoff + xscale * ii, yoff + yscale * nabla[ii]);
+  }
+  cairo_set_line_width (cr, 2.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
+  cairo_stroke (cr);
+  
+  cairo_destroy (cr);
+  
+  return TRUE;			// TRUE to stop event propagation
+}
+
+
+gint cb_phi_size_allocate (GtkWidget * ww,
+			   GtkAllocation * aa,
+			   gpointer data)
+{
+  w_phi_width = aa->width;
+  w_phi_height = aa->height;
+  return TRUE;			// TRUE to stop event propagation
+}
+
+
+gint cb_diff_size_allocate (GtkWidget * ww,
+			   GtkAllocation * aa,
+			   gpointer data)
+{
+  w_diff_width = aa->width;
+  w_diff_height = aa->height;
   return TRUE;			// TRUE to stop event propagation
 }
 
@@ -166,14 +240,23 @@ int main (int argc, char ** argv)
   init ();
   
   builder = gtk_builder_new();
-  if ( ! gtk_builder_add_from_file (builder, "gui.glade", &error)) {
+  if ( ! gtk_builder_add_from_file (builder, "dbglin.glade", &error)) {
     g_warning ("%s", error->message);
     g_free (error);
     return 1;
   }
   
   window = GTK_WIDGET (gtk_builder_get_object (builder, "window"));
-  plane = GTK_WIDGET (gtk_builder_get_object (builder, "plane"));
+  w_phi = GTK_WIDGET (gtk_builder_get_object (builder, "phi"));
+  if ( ! w_phi) {
+    g_warning ("no `phi' widget");
+    return 2;
+  }
+  w_diff = GTK_WIDGET (gtk_builder_get_object (builder, "diff"));
+  if ( ! w_diff) {
+    g_warning ("no `diff' widget");
+    return 2;
+  }
   gtk_builder_connect_signals (builder, NULL);
   g_object_unref (G_OBJECT (builder));
   
