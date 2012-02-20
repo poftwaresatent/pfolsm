@@ -1,20 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "pfolsm.h"
+
 #include <math.h>
-#include <err.h>
-
-
-struct pfolsm {
-  double * phi;
-  double * phinext;
-  double * diffx;
-  double * diffy;
-  double * nabla;
-  double * data;
-  size_t dimx;
-  size_t dimy;
-  size_t nx, ny, ntt;
-};
 
 
 int pfolsm_create (struct pfolsm * pp,
@@ -105,7 +91,7 @@ void pfolsm_init (struct pfolsm * pp)
 }
 
 
-void pfolsm_diff (struct pfolsm * pp)
+void _pfolsm_diff (struct pfolsm * pp)
 {
   size_t ii, jj;
   
@@ -138,7 +124,7 @@ void pfolsm_diff (struct pfolsm * pp)
 }
 
 
-void pfolsm_nabla (struct pfolsm * pp)
+void _pfolsm_nabla (struct pfolsm * pp)
 {
   size_t ii, jj;
   
@@ -201,8 +187,8 @@ void pfolsm_update (struct pfolsm * pp, double dt)
 {
   double * tmp;
   
-  pfolsm_diff (pp);
-  pfolsm_nabla (pp);
+  _pfolsm_diff (pp);
+  _pfolsm_nabla (pp);
   pfolsm_cphinext (pp, dt);
   pfolsm_cbounds (pp);
   
@@ -212,7 +198,7 @@ void pfolsm_update (struct pfolsm * pp, double dt)
 }
 
 
-static void pnum5 (FILE * fp, double num)
+void _pfolsm_pnum5 (FILE * fp, double num)
 {
   if (isinf(num)) {
     fprintf(fp, "  inf");
@@ -229,7 +215,7 @@ static void pnum5 (FILE * fp, double num)
 }
 
 
-static void pnum6 (FILE * fp, double num)
+void _pfolsm_pnum6 (FILE * fp, double num)
 {
   if (isinf(num)) {
     fprintf(fp, "   inf");
@@ -246,10 +232,10 @@ static void pnum6 (FILE * fp, double num)
 }
 
 
-static void pdata (struct pfolsm * pp,
-		   FILE * fp,
-		   double * dbase,
-		   void (*pfunc)(FILE *, double))
+void _pfolsm_pdata (struct pfolsm * pp,
+		    FILE * fp,
+		    double * dbase,
+		    void (*pfunc)(FILE *, double))
 {
   size_t ii, jj;
   double * dd;
@@ -269,43 +255,17 @@ void pfolsm_dump (struct pfolsm * pp,
 {
   fprintf (fp, "==================================================\n");
   fprintf (fp, "phi\n");
-  pdata (pp, fp, pp->phi, pnum6);
+  _pfolsm_pdata (pp, fp, pp->phi, _pfolsm_pnum6);
   
   fprintf (fp, "--------------------------------------------------\n");
   fprintf (fp, "diffx\n");
-  pdata (pp, fp, pp->diffx, pnum6);
+  _pfolsm_pdata (pp, fp, pp->diffx, _pfolsm_pnum6);
   
   fprintf (fp, "--------------------------------------------------\n");
   fprintf (fp, "diffy\n");
-  pdata (pp, fp, pp->diffy, pnum6);
+  _pfolsm_pdata (pp, fp, pp->diffy, _pfolsm_pnum6);
   
   fprintf (fp, "--------------------------------------------------\n");
   fprintf (fp, "nabla\n");
-  pdata (pp, fp, pp->nabla, pnum6);
-}
-
-
-int main(int argc, char ** argv)
-{
-  size_t ii;
-  
-  struct pfolsm obj;
-  if (0 != pfolsm_create (&obj, 12, 12)) {
-    errx (EXIT_FAILURE, "failed to create LSM data structure");
-  }
-  pfolsm_init (&obj);
-  pfolsm_diff (&obj);
-  pfolsm_nabla (&obj);
-  pfolsm_dump (&obj, stdout);
-  pfolsm_destroy (&obj);
-  
-  printf ("**************************************************\n");
-  for (ii = 0; ii < 200; ++ii) {
-    printf ("%zu\n", ii);
-    pfolsm_update (&obj, 0.1);
-    pdata (&obj, stdout, obj.phi, pnum6);
-    printf ("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-  }
-  
-  return 0;
+  _pfolsm_pdata (pp, fp, pp->nabla, _pfolsm_pnum6);
 }
