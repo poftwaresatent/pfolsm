@@ -6,6 +6,7 @@
 
 static pfolsm_t * lsm;
 static GtkWidget * plane;
+static int play;
 
 
 void init ()
@@ -32,7 +33,14 @@ void cleanup ()
 
 void cb_play (GtkWidget * ww, gpointer data)
 {
-  g_print("play is not implemented yet\n");
+  if (play) {
+    play = 0;
+    g_print("PAUSE\n");    
+  }
+  else {
+    play = 1;
+    g_print("PLAY\n");    
+  }
 }
 
 
@@ -41,8 +49,8 @@ void cb_next (GtkWidget * ww, gpointer data)
   if ( ! lsm) {
     init ();
   }
-  pfolsm_update (lsm, 0.1);
-  _pfolsm_pdata (lsm, stdout, lsm->phi, _pfolsm_pnum6);
+  pfolsm_update (lsm, 0.01);
+  //  _pfolsm_pdata (lsm, stdout, lsm->phi, _pfolsm_pnum6);
   
   if (plane) {
     gtk_widget_queue_draw (plane);
@@ -95,6 +103,14 @@ gint cb_plane_expose (GtkWidget * ww,
 }
 
 
+gint idle (gpointer data)
+{
+  if (play) {
+    cb_next (0, 0);
+  }
+  return TRUE;
+}
+
 
 int main (int argc, char ** argv)
 {
@@ -114,6 +130,11 @@ int main (int argc, char ** argv)
   plane = GTK_WIDGET (gtk_builder_get_object (builder, "plane"));
   gtk_builder_connect_signals (builder, NULL);
   g_object_unref (G_OBJECT (builder));
+  
+  if ( ! gtk_idle_add (idle, 0)) {
+    g_warning ("failed to register idle function");
+    return 2;
+  }
   
   gtk_widget_show (window);
   gtk_main ();
