@@ -26,6 +26,7 @@
                     <property name="can_focus">False</property>
                     <signal name="button-press-event" handler="plane_button_press_event_cb" swapped="no"/>
                     <signal name="button-release-event" handler="plane_button_release_event_cb" swapped="no"/>
+                    <signal name="expose-event" handler="cb_plane_expose" swapped="no"/>
                   </object>
                 </child>
               </object>

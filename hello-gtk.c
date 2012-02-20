@@ -20,6 +20,27 @@ void cb_quit (GtkWidget * ww, gpointer data)
 }
 
 
+gint cb_plane_expose (GtkWidget * ww,
+		      GdkEventExpose * ee,
+		      gpointer data)
+{
+  cairo_t * cr = gdk_cairo_create (ee->window);
+  size_t ii, jj;
+  for (ii = 0; ii < 100; ii += 10) {
+    for (jj = 0; jj < 100; jj += 10) {
+      cairo_set_source_rgb (cr, ii / 100.0, jj / 100.0, 0);
+      cairo_rectangle (cr, ii, jj, ii + 10, jj + 10);
+      cairo_fill (cr);
+    }
+  }
+  
+  cairo_destroy (cr);
+  
+  return TRUE;			// TRUE to stop event propagation
+}
+
+
+
 int main (int argc, char ** argv)
 {
   GtkBuilder * builder;
