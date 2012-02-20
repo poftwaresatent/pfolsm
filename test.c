@@ -7,7 +7,7 @@ int main(int argc, char ** argv)
 {
   size_t ii;
   
-  struct pfolsm obj;
+  pfolsm_t obj;
   if (0 != pfolsm_create (&obj, 12, 12)) {
     errx (EXIT_FAILURE, "failed to create LSM data structure");
   }

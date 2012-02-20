@@ -3,7 +3,7 @@
 #include <math.h>
 
 
-int pfolsm_create (struct pfolsm * pp,
+int pfolsm_create (pfolsm_t * pp,
 		   size_t dimx,
 		   size_t dimy)
 {
@@ -35,13 +35,13 @@ int pfolsm_create (struct pfolsm * pp,
 }
 
 
-void pfolsm_destroy (struct pfolsm * pp)
+void pfolsm_destroy (pfolsm_t * pp)
 {
   free (pp->data);
 }
 
 
-void pfolsm_cbounds (struct pfolsm * pp)
+void _pfolsm_cbounds (pfolsm_t * pp)
 {
   size_t ii;
   
@@ -75,7 +75,7 @@ void pfolsm_cbounds (struct pfolsm * pp)
 }
 
 
-void pfolsm_init (struct pfolsm * pp)
+void pfolsm_init (pfolsm_t * pp)
 {
   size_t ii, jj;
   
@@ -87,11 +87,11 @@ void pfolsm_init (struct pfolsm * pp)
     }
   }
   
-  pfolsm_cbounds (pp);
+  _pfolsm_cbounds (pp);
 }
 
 
-void _pfolsm_diff (struct pfolsm * pp)
+void _pfolsm_diff (pfolsm_t * pp)
 {
   size_t ii, jj;
   
@@ -124,7 +124,7 @@ void _pfolsm_diff (struct pfolsm * pp)
 }
 
 
-void _pfolsm_nabla (struct pfolsm * pp)
+void _pfolsm_nabla (pfolsm_t * pp)
 {
   size_t ii, jj;
   
@@ -168,7 +168,7 @@ void _pfolsm_nabla (struct pfolsm * pp)
 }
 
 
-void pfolsm_cphinext (struct pfolsm * pp, double dt)
+void _pfolsm_cphinext (pfolsm_t * pp, double dt)
 {
   size_t ii, jj;
   for (jj = 1; jj <= pp->dimy; ++jj) {
@@ -183,14 +183,14 @@ void pfolsm_cphinext (struct pfolsm * pp, double dt)
 }
 
 
-void pfolsm_update (struct pfolsm * pp, double dt)
+void pfolsm_update (pfolsm_t * pp, double dt)
 {
   double * tmp;
   
+  _pfolsm_cbounds (pp);
   _pfolsm_diff (pp);
   _pfolsm_nabla (pp);
-  pfolsm_cphinext (pp, dt);
-  pfolsm_cbounds (pp);
+  _pfolsm_cphinext (pp, dt);
   
   tmp = pp->phi;
   pp->phi = pp->phinext;
@@ -232,7 +232,7 @@ void _pfolsm_pnum6 (FILE * fp, double num)
 }
 
 
-void _pfolsm_pdata (struct pfolsm * pp,
+void _pfolsm_pdata (pfolsm_t * pp,
 		    FILE * fp,
 		    double * dbase,
 		    void (*pfunc)(FILE *, double))
@@ -250,7 +250,7 @@ void _pfolsm_pdata (struct pfolsm * pp,
 }
 
 
-void pfolsm_dump (struct pfolsm * pp,
+void pfolsm_dump (pfolsm_t * pp,
 		  FILE * fp)
 {
   fprintf (fp, "==================================================\n");

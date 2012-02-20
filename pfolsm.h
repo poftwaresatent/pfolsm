@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 
-struct pfolsm {
+struct pfolsm_s {
   double * phi;
   double * phinext;
   double * diffx;
@@ -17,25 +17,32 @@ struct pfolsm {
   size_t nx, ny, ntt;
 };
 
-int pfolsm_create (struct pfolsm * pp,
+typedef struct pfolsm_s pfolsm_t;
+
+
+int pfolsm_create (pfolsm_t * pp,
 		   size_t dimx,
 		   size_t dimy);
 
-void pfolsm_destroy (struct pfolsm * pp);
+void pfolsm_destroy (pfolsm_t * pp);
 
-void pfolsm_init (struct pfolsm * pp);
+void pfolsm_init (pfolsm_t * pp);
 
-void pfolsm_update (struct pfolsm * pp, double dt);
+void pfolsm_update (pfolsm_t * pp, double dt);
 
-void pfolsm_dump (struct pfolsm * pp,
+void pfolsm_dump (pfolsm_t * pp,
 		  FILE * fp);
 
 
-void _pfolsm_diff (struct pfolsm * pp);
+void _pfolsm_cbounds (pfolsm_t * pp);
 
-void _pfolsm_nabla (struct pfolsm * pp);
+void _pfolsm_diff (pfolsm_t * pp);
 
-void _pfolsm_pdata (struct pfolsm * pp,
+void _pfolsm_nabla (pfolsm_t * pp);
+
+void _pfolsm_cphinext (pfolsm_t * pp, double dt);
+
+void _pfolsm_pdata (pfolsm_t * pp,
 		    FILE * fp,
 		    double * dbase,
 		    void (*pfunc)(FILE *, double));
