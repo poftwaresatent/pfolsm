@@ -1,6 +1,7 @@
 #include <gtk/gtk.h>
 #include <err.h>
 #include <math.h>
+#include <string.h>
 
 #define DIM 100
 #define NN (DIM + 2)
@@ -14,6 +15,7 @@ static GtkWidget * w_phi;
 static double w_phi_width, w_phi_height;
 static GtkWidget * w_diff;
 static double w_diff_width, w_diff_height;
+static GtkComboBoxText * w_shape;
 static int play;
 
 
@@ -39,7 +41,7 @@ void init ()
 
 void update ()
 {
-  static const double dt = 0.01;
+  static const double dt = 0.005;
   int ii;
   
   // 0. get phi from previous nextphi
@@ -83,6 +85,40 @@ void update ()
   
   gtk_widget_queue_draw (w_phi);
   gtk_widget_queue_draw (w_diff);
+}
+
+
+void cb_apply (GtkWidget * ww, gpointer data)
+{
+  gchar * shape = gtk_combo_box_text_get_active_text (w_shape);
+  if ( ! shape) {
+    g_warning ("no shape selected");
+    return;
+  }
+  if (0 == strncmp("triangle", shape, 8)) {
+    int ii;
+    for (ii = 1; ii < DIM / 2; ++ii) {
+      phi[ii] = ii - DIM / 4;
+      nextphi[ii] = phi[ii];
+    }
+    for (ii = DIM / 2; ii <= DIM; ++ii) {
+      phi[ii] = 3 * DIM / 4 - ii;
+      nextphi[ii] = phi[ii];
+    }
+    update ();
+  }
+  else if (0 == strncmp("sine", shape, 4)) {
+    int ii;
+    for (ii = 1; ii <= DIM; ++ii) {
+      phi[ii] = 40 * sin(2 * M_PI * (ii-1) / DIM);
+      nextphi[ii] = phi[ii];
+    }
+    update ();
+  }
+  else {
+    g_warning ("cannot apply `%s' shape", shape);
+  }
+  g_free (shape);
 }
 
 
@@ -235,6 +271,7 @@ int main (int argc, char ** argv)
   GtkBuilder * builder;
   GtkWidget * window;
   GError * error = NULL;
+  GtkBox * blah;
   
   gtk_init (&argc, &argv);
   init ();
@@ -257,8 +294,19 @@ int main (int argc, char ** argv)
     g_warning ("no `diff' widget");
     return 2;
   }
+  blah = (GtkBox*) GTK_WIDGET (gtk_builder_get_object (builder, "blah"));
+  if ( ! blah) {
+    g_warning ("no `blah' widget");
+    return 2;
+  }
   gtk_builder_connect_signals (builder, NULL);
   g_object_unref (G_OBJECT (builder));
+  
+  w_shape = (GtkComboBoxText*) gtk_combo_box_text_new ();
+  gtk_combo_box_text_append_text (w_shape, "triangle");
+  gtk_combo_box_text_append_text (w_shape, "sine");
+  gtk_box_pack_start (blah, GTK_WIDGET (w_shape), TRUE, TRUE, 0);
+  gtk_widget_show (GTK_WIDGET (w_shape));
   
   if ( ! gtk_idle_add (idle, 0)) {
     g_warning ("failed to register idle function");
