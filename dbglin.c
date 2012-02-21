@@ -61,21 +61,20 @@ void update ()
   
   // 2. update finite difference operators
   for (ii = 0; ii <= DIM; ++ii) {
-    diff[ii] = phi[ii+1] - phi[ii];
+    diff[ii+1] = phi[ii+1] - phi[ii];
   }
   
   // 3. update upwind gradient
   for (ii = 1; ii <= DIM; ++ii) {
-    if (diff[ii] > 0.0) {
-      nabla[ii] = pow(diff[ii], 2.0);
+    double dd = diff[ii];
+    nabla[ii] = 0.0;
+    if (dd > 0.0) {
+      nabla[ii] = dd;
     }
-    else {
-      nabla[ii] = 0.0;
+    dd = -diff[ii+1];
+    if (dd > nabla[ii]) {
+      nabla[ii] = dd;
     }
-    if (diff[ii-1] < 0.0) {
-      nabla[ii] += pow(diff[ii-1], 2.0);
-    }
-    nabla[ii] = sqrt(nabla[ii]);
   }
   
   // 4. compute next phi
