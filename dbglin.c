@@ -94,7 +94,7 @@ void cb_apply (GtkWidget * ww, gpointer data)
     g_warning ("no shape selected");
     return;
   }
-  if (0 == strncmp("triangle", shape, 8)) {
+  if (0 == strncmp("tri-up", shape, 8)) {
     int ii;
     for (ii = 1; ii < DIM / 2; ++ii) {
       phi[ii] = ii - DIM / 4;
@@ -106,10 +106,30 @@ void cb_apply (GtkWidget * ww, gpointer data)
     }
     update ();
   }
-  else if (0 == strncmp("sine", shape, 4)) {
+  else if (0 == strncmp("tri-down", shape, 8)) {
+    int ii;
+    for (ii = 1; ii < DIM / 2; ++ii) {
+      phi[ii] = DIM / 4 - ii;
+      nextphi[ii] = phi[ii];
+    }
+    for (ii = DIM / 2; ii <= DIM; ++ii) {
+      phi[ii] = ii - 3 * DIM / 4;
+      nextphi[ii] = phi[ii];
+    }
+    update ();
+  }
+  else if (0 == strncmp("sin", shape, 4)) {
     int ii;
     for (ii = 1; ii <= DIM; ++ii) {
       phi[ii] = 40 * sin(2 * M_PI * (ii-1) / DIM);
+      nextphi[ii] = phi[ii];
+    }
+    update ();
+  }
+  else if (0 == strncmp("cos", shape, 4)) {
+    int ii;
+    for (ii = 1; ii <= DIM; ++ii) {
+      phi[ii] = 40 * cos(2 * M_PI * (ii-1) / DIM);
       nextphi[ii] = phi[ii];
     }
     update ();
@@ -302,8 +322,10 @@ int main (int argc, char ** argv)
   g_object_unref (G_OBJECT (builder));
   
   w_shape = (GtkComboBoxText*) gtk_combo_box_text_new ();
-  gtk_combo_box_text_append_text (w_shape, "triangle");
-  gtk_combo_box_text_append_text (w_shape, "sine");
+  gtk_combo_box_text_append_text (w_shape, "tri-up");
+  gtk_combo_box_text_append_text (w_shape, "tri-down");
+  gtk_combo_box_text_append_text (w_shape, "sin");
+  gtk_combo_box_text_append_text (w_shape, "cos");
   gtk_box_pack_start (blah, GTK_WIDGET (w_shape), TRUE, TRUE, 0);
   gtk_widget_show (GTK_WIDGET (w_shape));
   
