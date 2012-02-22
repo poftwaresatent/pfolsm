@@ -10,6 +10,7 @@ static double phi[NN];
 static double nextphi[NN];
 static double diff[NN];
 static double nabla[NN];
+static double speed[NN];
 
 static GtkWidget * w_phi;
 static double w_phi_width, w_phi_height;
@@ -27,6 +28,7 @@ void init ()
     nextphi[ii] = NAN;
     diff[ii] = NAN;
     nabla[ii] = NAN;
+    speed[ii] = 1.0;
   }
   for (ii = 1; ii < DIM / 2; ++ii) {
     phi[ii] = ii - DIM / 4;
@@ -36,6 +38,15 @@ void init ()
     phi[ii] = 3 * DIM / 4 - ii;
     nextphi[ii] = phi[ii];
   }
+}
+
+
+static double max3 (double aa, double bb, double cc)
+{
+  if (aa > bb) {
+    return aa > cc ? aa : cc;
+  }
+  return bb > cc ? bb : cc;
 }
 
 
@@ -59,31 +70,38 @@ void update ()
   phi[0] = phi[2];
   phi[DIM+1] = phi[DIM-1];
   
-  // 2. update finite difference operators
+  // 2. update finite difference
   for (ii = 0; ii <= DIM; ++ii) {
     diff[ii+1] = phi[ii+1] - phi[ii];
   }
   
   // 3. update upwind gradient
   for (ii = 1; ii <= DIM; ++ii) {
-    double dd = diff[ii];
-    nabla[ii] = 0.0;
-    if (dd > 0.0) {
-      nabla[ii] = dd;
+    if (speed[ii] > 0.0) {
+      nabla[ii] = max3(diff[ii], -diff[ii+1], 0.0);
     }
-    dd = -diff[ii+1];
-    if (dd > nabla[ii]) {
-      nabla[ii] = dd;
+    else {
+      nabla[ii] = max3(-diff[ii], diff[ii+1], 0.0);
     }
   }
   
   // 4. compute next phi
   for (ii = 1; ii <= DIM; ++ii) {
-    nextphi[ii] = phi[ii] - dt * nabla[ii];
+    nextphi[ii] = phi[ii] - dt * speed[ii] * nabla[ii];
   }
   
   gtk_widget_queue_draw (w_phi);
   gtk_widget_queue_draw (w_diff);
+}
+
+
+void cb_reverse (GtkWidget * ww, gpointer data)
+{
+  int ii;
+  const double ss = - speed[0];
+  for (ii = 0; ii < NN; ++ii) {
+    speed[ii] = ss;
+  }
 }
 
 
@@ -232,6 +250,37 @@ gint cb_diff_expose (GtkWidget * ww,
   cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
   cairo_stroke (cr);
   
+  // - D-x in thin blue
+  cairo_set_source_rgb (cr, 0.5, 0.5, 1.0);
+  cairo_move_to (cr, xoff + xscale, yoff - yscale * diff[2]);
+  for (ii = 2; ii <= DIM; ++ii) {
+    cairo_line_to (cr, xoff + xscale * ii, yoff - yscale * diff[ii+1]);
+  }
+  cairo_set_line_width (cr, 1.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
+  cairo_stroke (cr);
+  
+  // + D-x in thick blue
+  cairo_set_source_rgb (cr, 0.5, 0.5, 1.0);
+  cairo_move_to (cr, xoff + xscale, yoff + yscale * diff[2]);
+  for (ii = 2; ii <= DIM; ++ii) {
+    cairo_line_to (cr, xoff + xscale * ii, yoff + yscale * diff[ii+1]);
+  }
+  cairo_set_line_width (cr, 2.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
+  cairo_stroke (cr);
+  
+  // - D+x in thin green
+  cairo_set_source_rgb (cr, 0.5, 1.0, 0.5);
+  cairo_move_to (cr, xoff + xscale, yoff - yscale * diff[1]);
+  for (ii = 2; ii <= DIM; ++ii) {
+    cairo_line_to (cr, xoff + xscale * ii, yoff - yscale * diff[ii]);
+  }
+  cairo_set_line_width (cr, 1.0);
+  cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
+  cairo_stroke (cr);
+  
+  // + D+x in thick green
   cairo_set_source_rgb (cr, 0.5, 1.0, 0.5);
   cairo_move_to (cr, xoff + xscale, yoff + yscale * diff[1]);
   for (ii = 2; ii <= DIM; ++ii) {
@@ -241,6 +290,7 @@ gint cb_diff_expose (GtkWidget * ww,
   cairo_set_line_join (cr, CAIRO_LINE_JOIN_BEVEL);
   cairo_stroke (cr);
   
+  // nabla in thick red
   cairo_set_source_rgb (cr, 1.0, 0.5, 0.5);
   cairo_move_to (cr, xoff + xscale, yoff + yscale * nabla[1]);
   for (ii = 2; ii <= DIM; ++ii) {
