@@ -6,10 +6,13 @@
 
 
 struct pfolsm_s {
+  double * speed;
   double * phi;
   double * phinext;
   double * diffx;
   double * diffy;
+  double * gradx;
+  double * grady;
   double * nabla;
   double * data;
   size_t dimx;
@@ -25,8 +28,6 @@ int pfolsm_create (pfolsm_t * pp,
 		   size_t dimy);
 
 void pfolsm_destroy (pfolsm_t * pp);
-
-void pfolsm_init (pfolsm_t * pp);
 
 void pfolsm_update (pfolsm_t * pp, double dt);
 

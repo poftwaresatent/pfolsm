@@ -112,7 +112,7 @@ void cb_apply (GtkWidget * ww, gpointer data)
     g_warning ("no shape selected");
     return;
   }
-  if (0 == strncmp("tri-up", shape, 8)) {
+  if (0 == strncmp("tri-up", shape, 6)) {
     int ii;
     for (ii = 1; ii < DIM / 2; ++ii) {
       phi[ii] = ii - DIM / 4;
@@ -136,7 +136,7 @@ void cb_apply (GtkWidget * ww, gpointer data)
     }
     update ();
   }
-  else if (0 == strncmp("sin", shape, 4)) {
+  else if (0 == strncmp("sin", shape, 3)) {
     int ii;
     for (ii = 1; ii <= DIM; ++ii) {
       phi[ii] = 40 * sin(2 * M_PI * (ii-1) / DIM);
@@ -144,7 +144,7 @@ void cb_apply (GtkWidget * ww, gpointer data)
     }
     update ();
   }
-  else if (0 == strncmp("cos", shape, 4)) {
+  else if (0 == strncmp("cos", shape, 3)) {
     int ii;
     for (ii = 1; ii <= DIM; ++ii) {
       phi[ii] = 40 * cos(2 * M_PI * (ii-1) / DIM);

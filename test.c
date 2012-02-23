@@ -3,6 +3,22 @@
 #include <err.h>
 
 
+static void init (pfolsm_t * pp)
+{
+  size_t ii, jj;
+  
+  for (jj = 1; jj <= pp->dimy; ++jj) {
+    size_t const off = pp->nx * jj;
+    for (ii = 1; ii <= pp->dimx; ++ii) {
+      pp->phi[ii + off] = jj - 1.0;
+      //      pp->phi[ii + off] = sqrt(pow(ii - 1.0, 2.0) + pow(jj - 1.0, 2.0)) - 3.0;
+    }
+  }
+  
+  _pfolsm_cbounds (pp);
+}
+
+
 int main(int argc, char ** argv)
 {
   size_t ii;
@@ -11,7 +27,7 @@ int main(int argc, char ** argv)
   if (0 != pfolsm_create (&obj, 12, 12)) {
     errx (EXIT_FAILURE, "failed to create LSM data structure");
   }
-  pfolsm_init (&obj);
+  init (&obj);
   _pfolsm_diff (&obj);
   _pfolsm_nabla (&obj);
   pfolsm_dump (&obj, stdout);

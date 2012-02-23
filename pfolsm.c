@@ -10,26 +10,36 @@ int pfolsm_create (pfolsm_t * pp,
   size_t ii;
   double * dd;
   
+  if (dimx < 2) {
+    dimx = 2;
+  }
+  if (dimy < 2) {
+    dimy = 2;
+  }
+  
   pp->dimx = dimx;
   pp->dimy = dimy;
-  pp->nx = dimx + 2;
-  pp->ny = dimy + 2;
-  pp->ntt = pp->nx * pp->ny;
+  pp->nx   = dimx + 2;
+  pp->ny   = dimy + 2;
+  pp->ntt  = pp->nx * pp->ny;
   
-  pp->data = calloc (5 * pp->ntt, sizeof(*(pp->data)));
+  pp->data = calloc (8 * pp->ntt, sizeof(*(pp->data)));
   if (0 == pp->data) {
     return -1;
   }
   dd = pp->data;
-  for (ii = 0; ii < 5 * pp->ntt; ++ii) {
+  for (ii = 0; ii < 8 * pp->ntt; ++ii) {
     *(dd++) = NAN;
   }
   
-  pp->phi = pp->data;
-  pp->phinext = pp->phi + pp->ntt;
-  pp->diffx = pp->phinext + pp->ntt;
-  pp->diffy = pp->diffx + pp->ntt;
-  pp->nabla = pp->diffy + pp->ntt;
+  pp->speed   = pp->data;
+  pp->phi     = pp->data    + pp->ntt;
+  pp->phinext = pp->phi     + pp->ntt;
+  pp->diffx   = pp->phinext + pp->ntt;
+  pp->diffy   = pp->diffx   + pp->ntt;
+  pp->gradx   = pp->diffy   + pp->ntt;
+  pp->grady   = pp->gradx   + pp->ntt;
+  pp->nabla   = pp->grady   + pp->ntt;
   
   return 0;
 }
@@ -48,9 +58,9 @@ void _pfolsm_cbounds (pfolsm_t * pp)
   // go along bottom and top boundaries
   
   double * dstbl = pp->phi + 1;
-  double * srcbl = dstbl + pp->nx;
-  double * srctr = pp->phi + pp->nx * pp->dimy + 1;
-  double * dsttr = srctr + pp->nx;
+  double * srcbl = dstbl + 2 * pp->nx;
+  double * srctr = pp->phi + pp->nx * (pp->dimy - 1) + 1;
+  double * dsttr = srctr + 2 * pp->nx;
   
   for (ii = 1; ii <= pp->dimx; ++ii) {
     *(dstbl++) = *(srcbl++);
@@ -60,9 +70,9 @@ void _pfolsm_cbounds (pfolsm_t * pp)
   // go along left and right boundaries
   
   dstbl = pp->phi + pp->nx;
-  srcbl = dstbl + 1;
-  srctr = dstbl + pp->dimx;
-  dsttr = srctr + 1;
+  srcbl = dstbl + 2;
+  srctr = dstbl + pp->dimx - 1;
+  dsttr = srctr + 2;
   
   for (ii = 1; ii <= pp->dimy; ++ii) {
     *dstbl = *srcbl;
@@ -75,45 +85,27 @@ void _pfolsm_cbounds (pfolsm_t * pp)
 }
 
 
-void pfolsm_init (pfolsm_t * pp)
-{
-  size_t ii, jj;
-  
-  for (jj = 1; jj <= pp->dimy; ++jj) {
-    size_t const off = pp->nx * jj;
-    for (ii = 1; ii <= pp->dimx; ++ii) {
-      pp->phi[ii + off] = jj - 1.0;
-      //      pp->phi[ii + off] = sqrt(pow(ii - 1.0, 2.0) + pow(jj - 1.0, 2.0)) - 3.0;
-    }
-  }
-  
-  _pfolsm_cbounds (pp);
-}
-
-
 void _pfolsm_diff (pfolsm_t * pp)
 {
   size_t ii, jj;
   
-  // compute D+x (also on left boundary so we can use it for D-x by
-  // shifting)
+  // compute dx
   
   for (jj = 1; jj <= pp->dimy; ++jj) {
     double * dm = pp->phi + jj * pp->nx;
     double * dp = dm + 1;
-    double * dst = pp->diffx + jj * pp->nx;
+    double * dst = pp->diffx + jj * pp->nx + 1;
     for (ii = 0; ii <= pp->dimx; ++ii) {
       *(dst++) = *(dp++) - *(dm++);
     }
   }
   
-  // compute D+y (also on bottom boundary so we can use it for D-y by
-  // shifting)
+  // compute dy
   
   for (ii = 1; ii <= pp->dimx; ++ii) {
     double * dm = pp->phi + ii;
     double * dp = dm + pp->nx;
-    double * dst = pp->diffy + ii;
+    double * dst = pp->diffy + ii + 1;
     for (jj = 0; jj <= pp->dimy; ++jj) {
       *dst = *dp - *dm;
       dst += pp->nx;
@@ -124,45 +116,34 @@ void _pfolsm_diff (pfolsm_t * pp)
 }
 
 
+static double max3 (double aa, double bb, double cc)
+{
+  if (aa > bb) {
+    return aa > cc ? aa : cc;
+  }
+  return bb > cc ? bb : cc;
+}
+
+
 void _pfolsm_nabla (pfolsm_t * pp)
 {
   size_t ii, jj;
   
+  // XXXX to do: reformulate with pointer arithmetic for faster
+  // computations.
+  
   for (jj = 1; jj <= pp->dimy; ++jj) {
-    
-    size_t const off0 = jj * pp->nx;
-    size_t const off1 = off0 + 1;
-    double * dmx = pp->diffx + off0;
-    double * dpx = dmx + 1;
-    double * dpy = pp->diffy + off1;
-    double * dmy = dpy - pp->nx;
-    double * nn = pp->nabla + off1;
-    
     for (ii = 1; ii <= pp->dimx; ++ii) {
-      
-      if (*dpx > 0.0) {
-	*nn = pow(*dpx, 2.0);
+      const size_t idx = ii + jj * pp->nx;
+      if (pp->speed[idx] > 0.0) {
+	pp->gradx[idx] = max3 (pp->diffx[idx], - pp->diffx[idx+1], 0.0);
+	pp->grady[idx] = max3 (pp->diffy[idx], - pp->diffy[idx+pp->nx], 0.0);
       }
       else {
-	*nn = 0.0;
+	pp->gradx[idx] = max3 ( - pp->diffx[idx], pp->diffx[idx+1], 0.0);
+	pp->grady[idx] = max3 ( - pp->diffy[idx], pp->diffy[idx+pp->nx], 0.0);
       }
-      if (*dmx < 0.0) {
-	*nn += pow(*dmx, 2.0);
-      }
-      if (*dpy > 0.0) {
-	*nn += pow(*dpy, 2.0);
-      }
-      if (*dmy < 0.0) {
-	*nn += pow(*dmy, 2.0);
-      }
-      
-      *nn = sqrt(*nn);
-      
-      ++dmx;
-      ++dpx;
-      ++dmy;
-      ++dpy;
-      ++nn;
+      pp->nabla[idx] = sqrt (pow(pp->gradx[idx], 2.0) + pow(pp->grady[idx], 2.0));
     }
   }
 }
