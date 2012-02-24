@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 
-#define DIMX 100
-#define DIMY  80
+#define DIMX 40
+#define DIMY 40
 #define NX (DIMX + 2)
 #define NY (DIMY + 2)
 #define NTT (NX * NY)
@@ -284,10 +284,7 @@ int main (int argc, char ** argv)
   gtk_builder_connect_signals (builder, NULL);
   g_object_unref (G_OBJECT (builder));
   
-  if ( ! gtk_idle_add (idle, 0)) {
-    g_warning ("failed to register idle function");
-    return 2;
-  }
+  gtk_idle_add (idle, 0);
   
   gtk_widget_show (window);
   gtk_main ();
