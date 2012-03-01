@@ -262,31 +262,52 @@ gint idle (gpointer data)
 
 int main (int argc, char ** argv)
 {
-  GtkBuilder * builder;
-  GtkWidget * window;
-  GError * error = NULL;
+  GtkWidget *window, *vbox, *hbox, *foo, *bar;
   
   gtk_init (&argc, &argv);
   init ();
   
-  builder = gtk_builder_new();
-  if ( ! gtk_builder_add_from_file (builder, "dbgpln.glade", &error)) {
-    g_warning ("%s", error->message);
-    g_free (error);
-    return 1;
-  }
+  window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   
-  window = GTK_WIDGET (gtk_builder_get_object (builder, "window"));
-  w_phi = GTK_WIDGET (gtk_builder_get_object (builder, "phi"));
-  if ( ! w_phi) {
-    g_warning ("no `phi' widget");
-    return 2;
-  }
-  gtk_builder_connect_signals (builder, NULL);
-  g_object_unref (G_OBJECT (builder));
+  vbox = gtk_vbox_new (FALSE, 0);
+  gtk_container_add (GTK_CONTAINER (window), vbox);
+  gtk_widget_show (vbox);
   
-  ////  gtk_idle_add (idle, 0);
-  gtk_timeout_add (50, idle, 0);
+  w_phi = gtk_drawing_area_new ();
+  g_signal_connect (w_phi, "expose_event", G_CALLBACK (cb_phi_expose), NULL);
+  g_signal_connect (w_phi, "size_allocate", G_CALLBACK (cb_phi_size_allocate), NULL);
+  gtk_widget_show (w_phi);
+  
+  gtk_widget_set_size_request (w_phi, 400, 500);
+  gtk_box_pack_start (GTK_BOX (vbox), w_phi, TRUE, TRUE, 0);
+  
+  hbox = gtk_hbox_new (TRUE, 3);
+  gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, TRUE, 0);
+  gtk_widget_show (hbox);
+
+  
+  foo = gtk_button_new_with_label ("reverse");
+  g_signal_connect (foo, "clicked", G_CALLBACK (cb_reverse), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
+  gtk_widget_show (foo);
+  
+  foo = gtk_button_new_with_label ("play");
+  g_signal_connect (foo, "clicked", G_CALLBACK (cb_play), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
+  gtk_widget_show (foo);
+  
+  foo = gtk_button_new_with_label ("next");
+  g_signal_connect (foo, "clicked", G_CALLBACK (cb_next), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
+  gtk_widget_show (foo);
+  
+  foo = gtk_button_new_with_label ("quit");
+  g_signal_connect (foo, "clicked", G_CALLBACK (cb_quit), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
+  gtk_widget_show (foo);
+  
+  gtk_idle_add (idle, 0);
+  ////gtk_timeout_add (50, idle, 0);
   
   gtk_widget_show (window);
   gtk_main ();
