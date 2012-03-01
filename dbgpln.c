@@ -21,6 +21,7 @@ static double speed[NTT];
 
 static GtkWidget * w_phi;
 static gint w_phi_width, w_phi_height;
+static gint phi_sx, phi_sy, phi_x0, phi_y0;
 static double phimin, phimax;
 static int play;
 
@@ -68,7 +69,7 @@ void update ()
   static const double dt = 0.005;
   size_t ii, jj;
   
-  printf ("update\n");
+  ////  printf ("update\n");
   
   // 0. get phi from previous nextphi
   // 1. update boundary condition
@@ -91,7 +92,6 @@ void update ()
       phimax = phi[ii];
     }
   }
-  printf ("  bounds: %g %g\n", phimin, phimax);
   
   // 1. update boundary condition
   for (ii = 1; ii <= DIMX; ++ii) {
@@ -136,9 +136,7 @@ void update ()
     }
   }
   
-  printf ("  queuing redraw\n");
   gtk_widget_queue_draw (w_phi);
-  printf ("  done\n");
 }
 
 
@@ -190,32 +188,14 @@ gint cb_phi_expose (GtkWidget * ww,
 {
   size_t ii, jj;
   cairo_t * cr = gdk_cairo_create (ee->window);
-  gint sx, sy, x0, y0;
   
   cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
   cairo_rectangle (cr, 0, 0, w_phi_width, w_phi_height);
   cairo_fill (cr);
   
-  sx = w_phi_width / DIMX;
-  if (sx < 1) {
-    sx = 1;
-  }
-  sy = w_phi_height / DIMY;
-  if (sy < 1) {
-    sy = 1;
-  }
-  if (sx > sy) {
-    sx = sy;
-  }
-  else {
-    sy = sx;
-  }
-  x0 = (w_phi_width - DIMX * sx) / 2;
-  y0 = (w_phi_height - DIMY * sy) / 2;
-  
   cairo_set_source_rgb (cr, 0.5, 0.5, 0.5);
   cairo_set_line_width (cr, 2.0);
-  cairo_rectangle (cr, x0 - 2, y0 - 2, DIMX * sx + 4, DIMY * sy + 4);
+  cairo_rectangle (cr, phi_x0 - 2, phi_y0 - 2, DIMX * phi_sx + 4, DIMY * phi_sy + 4);
   cairo_stroke (cr);
   
   for (ii = 1; ii <= DIMX; ++ii) {
@@ -227,7 +207,7 @@ gint cb_phi_expose (GtkWidget * ww,
       else {
   	cairo_set_source_rgb (cr, 1.0 + pp / phimax, 0.0, 0.0);
       }
-      cairo_rectangle (cr, x0 + (ii-1) * sx, y0 + (jj-1) * sy, sx, sy);
+      cairo_rectangle (cr, phi_x0 + (ii-1) * phi_sx, phi_y0 + (jj-1) * phi_sy, phi_sx, phi_sy);
       cairo_fill (cr);
     }
   }
@@ -244,6 +224,59 @@ gint cb_phi_size_allocate (GtkWidget * ww,
 {
   w_phi_width = aa->width;
   w_phi_height = aa->height;
+  
+  phi_sx = w_phi_width / DIMX;
+  if (phi_sx < 1) {
+    phi_sx = 1;
+  }
+  phi_sy = w_phi_height / DIMY;
+  if (phi_sy < 1) {
+    phi_sy = 1;
+  }
+  if (phi_sx > phi_sy) {
+    phi_sx = phi_sy;
+  }
+  else {
+    phi_sy = phi_sx;
+  }
+  phi_x0 = (w_phi_width - DIMX * phi_sx) / 2;
+  phi_y0 = (w_phi_height - DIMY * phi_sy) / 2;
+  
+  return TRUE;			// TRUE to stop event propagation
+}
+
+
+gint cb_phi_button_release (GtkWidget * ww,
+			    GdkEventButton * bb,
+			    gpointer data)
+{
+  printf ("WTF???\n");
+  
+  size_t ii, jj;
+  gdouble const cx = bb->x / phi_sx - phi_x0;
+  gdouble const cy = bb->y / phi_sy - phi_y0;
+  
+  for (ii = 1; ii <= DIMX; ++ii) {
+    for (jj = 1; jj <= DIMY; ++jj) {
+      double const dd = sqrt (pow (cx - ii, 2.0) + pow (cy - jj, 2.0));
+      double aa = 1.0;
+      if (dd > 2) {
+	if (dd > 10) {
+	  continue;
+	}
+	if (dd > 6.0) {
+	  aa = 0.5 * pow ((10.0 - dd) / 4.0, 2.0);
+	}
+	else {
+	  aa = 1.0 - 0.5 * pow((dd - 2.0) / 4.0, 2.0);
+	}
+      }
+      size_t const idx = cidx(ii, jj);
+      phi[idx] = aa * dd + (1.0 - aa) * phi[idx];
+      nextphi[idx] = aa * dd + (1.0 - aa) * nextphi[idx];
+    }
+  }
+  
   return TRUE;			// TRUE to stop event propagation
 }
 
@@ -251,8 +284,6 @@ gint cb_phi_size_allocate (GtkWidget * ww,
 gint idle (gpointer data)
 {
   if (play) {
-    static size_t wtf = 0;
-    printf ("play... %zu\n", wtf++);
     update ();
   }
   return TRUE;
@@ -275,6 +306,10 @@ int main (int argc, char ** argv)
   w_phi = gtk_drawing_area_new ();
   g_signal_connect (w_phi, "expose_event", G_CALLBACK (cb_phi_expose), NULL);
   g_signal_connect (w_phi, "size_allocate", G_CALLBACK (cb_phi_size_allocate), NULL);
+
+#error 'why does this not end up getting called?'
+  g_signal_connect (w_phi, "button_press_event", G_CALLBACK (cb_phi_button_release), NULL);
+
   gtk_widget_show (w_phi);
   
   gtk_widget_set_size_request (w_phi, 400, 500);
