@@ -262,7 +262,7 @@ gint idle (gpointer data)
 
 int main (int argc, char ** argv)
 {
-  GtkWidget *window, *vbox, *hbox, *foo, *bar;
+  GtkWidget *window, *vbox, *hbox, *btn;
   
   gtk_init (&argc, &argv);
   init ();
@@ -286,25 +286,25 @@ int main (int argc, char ** argv)
   gtk_widget_show (hbox);
 
   
-  foo = gtk_button_new_with_label ("reverse");
-  g_signal_connect (foo, "clicked", G_CALLBACK (cb_reverse), NULL);
-  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
-  gtk_widget_show (foo);
+  btn = gtk_button_new_with_label ("reverse");
+  g_signal_connect (btn, "clicked", G_CALLBACK (cb_reverse), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), btn, TRUE, TRUE, 0);
+  gtk_widget_show (btn);
   
-  foo = gtk_button_new_with_label ("play");
-  g_signal_connect (foo, "clicked", G_CALLBACK (cb_play), NULL);
-  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
-  gtk_widget_show (foo);
+  btn = gtk_button_new_with_label ("play");
+  g_signal_connect (btn, "clicked", G_CALLBACK (cb_play), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), btn, TRUE, TRUE, 0);
+  gtk_widget_show (btn);
   
-  foo = gtk_button_new_with_label ("next");
-  g_signal_connect (foo, "clicked", G_CALLBACK (cb_next), NULL);
-  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
-  gtk_widget_show (foo);
+  btn = gtk_button_new_with_label ("next");
+  g_signal_connect (btn, "clicked", G_CALLBACK (cb_next), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), btn, TRUE, TRUE, 0);
+  gtk_widget_show (btn);
   
-  foo = gtk_button_new_with_label ("quit");
-  g_signal_connect (foo, "clicked", G_CALLBACK (cb_quit), NULL);
-  gtk_box_pack_start (GTK_BOX (hbox), foo, TRUE, TRUE, 0);
-  gtk_widget_show (foo);
+  btn = gtk_button_new_with_label ("quit");
+  g_signal_connect (btn, "clicked", G_CALLBACK (cb_quit), NULL);
+  gtk_box_pack_start (GTK_BOX (hbox), btn, TRUE, TRUE, 0);
+  gtk_widget_show (btn);
   
   gtk_idle_add (idle, 0);
   ////gtk_timeout_add (50, idle, 0);
