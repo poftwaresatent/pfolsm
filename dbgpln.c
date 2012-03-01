@@ -255,8 +255,7 @@ gint idle (gpointer data)
     printf ("play... %zu\n", wtf++);
     update ();
   }
-  gtk_timeout_add (50, idle, 0);
-  return FALSE;
+  return TRUE;
 }
 
 
@@ -307,7 +306,6 @@ int main (int argc, char ** argv)
   gtk_widget_show (btn);
   
   gtk_idle_add (idle, 0);
-  ////gtk_timeout_add (50, idle, 0);
   
   gtk_widget_show (window);
   gtk_main ();
