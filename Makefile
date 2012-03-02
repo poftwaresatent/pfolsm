@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -Wall -O0 -g -pipe
 
 #all: test lsmgtk dbglin dbgpln
-all: click
+all: dbgpln
 
 pfolsm.o: pfolsm.c pfolsm.h Makefile
 
