@@ -48,7 +48,7 @@ static void init ()
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
       size_t const idx = cidx(ii, jj);
-      phi[idx] = sqrt(ii*ii + jj*jj) - DIMX / 2;
+      phi[idx] = sqrt (pow (10.0 - ii, 2.0) + pow (10.0 - jj, 2.0)) - 4.0;
       nextphi[idx] = phi[idx];
     }
   }
@@ -64,20 +64,35 @@ static double max3 (double aa, double bb, double cc)
 }
 
 
-void update ()
+static void update_boundaries ()
+{
+  size_t ii, jj;
+  
+  for (ii = 1; ii <= DIMX; ++ii) {
+    phi[cidx(ii, 0)] = phi[cidx(ii, 2)];
+    phi[cidx(ii, DIMY+1)] = phi[cidx(ii, DIMY-1)];
+  }
+  for (jj = 1; jj <= DIMY; ++jj) {
+    phi[cidx(0, jj)] = phi[cidx(2, jj)];
+    phi[cidx(DIMX+1, jj)] = phi[cidx(DIMX-1, jj)];
+  }
+}
+
+
+static void update_speed ()
+{
+  //  size_t ii, jj;
+}
+
+
+static void update ()
 {
   static const double dt = 0.005;
   size_t ii, jj;
   
-  ////  printf ("update\n");
+  //////////////////////////////////////////////////
+  // get phi from previous nextphi
   
-  // 0. get phi from previous nextphi
-  // 1. update boundary condition
-  // 2. update finite difference operators
-  // 3. update upwind gradient
-  // 4. compute next phi
-
-  // 0. get phi from previous nextphi
   phimin = NAN;
   phimax = NAN;
   for (ii = 0; ii < NTT; ++ii) {
@@ -93,17 +108,13 @@ void update ()
     }
   }
   
-  // 1. update boundary condition
-  for (ii = 1; ii <= DIMX; ++ii) {
-    phi[cidx(ii, 0)] = phi[cidx(ii, 2)];
-    phi[cidx(ii, DIMY+1)] = phi[cidx(ii, DIMY-1)];
-  }
-  for (jj = 1; jj <= DIMY; ++jj) {
-    phi[cidx(0, jj)] = phi[cidx(2, jj)];
-    phi[cidx(DIMX+1, jj)] = phi[cidx(DIMX-1, jj)];
-  }
+  //////////////////////////////////////////////////
   
-  // 2. update finite difference
+  update_boundaries ();
+  
+  //////////////////////////////////////////////////
+  // update finite difference
+  
   for (ii = 1; ii < NX; ++ii) {
     for (jj = 1; jj < NY; ++jj) {
       const size_t idx = cidx(ii, jj);
@@ -112,7 +123,9 @@ void update ()
     }
   }
   
-  // 3. update upwind gradient
+  //////////////////////////////////////////////////  
+  // update upwind gradient
+  
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
       const size_t idx = cidx(ii, jj);
@@ -124,11 +137,17 @@ void update ()
 	gradx[idx] = max3(-diffx[idx], diffx[cidx(ii+1, jj)], 0.0);
 	grady[idx] = max3(-diffy[idx], diffy[cidx(ii, jj+1)], 0.0);
       }
-      nabla[idx] = sqrt(pow(diffx[idx], 2.0) + pow(diffy[idx], 2.0));
+      nabla[idx] = sqrt(pow(gradx[idx], 2.0) + pow(grady[idx], 2.0));
     }
   }
   
-  // 4. compute next phi
+  //////////////////////////////////////////////////
+  
+  update_speed ();
+  
+  //////////////////////////////////////////////////  
+  // compute next phi
+  
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
       const size_t idx = cidx(ii, jj);
@@ -262,15 +281,25 @@ gint cb_phi_click (GtkWidget * ww,
   
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
-      double const dd = sqrt (pow (cx - ii, 2.0) + pow (cy - jj, 2.0)) - 2.0;
+      double const dd = sqrt (pow (cx - ii, 2.0) + pow (cy - jj, 2.0)) - 4.0;
       size_t const idx = cidx(ii, jj);
-      if (nextphi[idx] > dd) {
-	phi[idx]  = dd;
-	nextphi[idx]  = dd;
-      }
+      phi[idx]  = dd;
+      nextphi[idx]  = dd;
     }
   }
   
+  //// second try... for some reason the local maxima did not properly
+  //// evolve, and there were some interesting grid effects.
+  // for (ii = 1; ii <= DIMX; ++ii) {
+  //   for (jj = 1; jj <= DIMY; ++jj) {
+  //     double const dd = sqrt (pow (cx - ii, 2.0) + pow (cy - jj, 2.0)) - 2.0;
+  //     size_t const idx = cidx(ii, jj);
+  //     if (nextphi[idx] > dd) {
+  // 	phi[idx]  = dd;
+  // 	nextphi[idx]  = dd;
+  //     }
+  //   }
+  // }
   
   //// first try... was a bit naive maybe. but it did something at least
   // for (ii = 1; ii <= DIMX; ++ii) {
