@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 
-#define DIMX 40
-#define DIMY 40
+#define DIMX 60
+#define DIMY 60
 #define NX (DIMX + 2)
 #define NY (DIMY + 2)
 #define NTT (NX * NY)
@@ -24,6 +24,7 @@ static gint w_phi_width, w_phi_height;
 static gint phi_sx, phi_sy, phi_x0, phi_y0;
 static double phimin, phimax;
 static int play;
+static double speed_factor;
 
 
 static size_t cidx (size_t ii, size_t jj)
@@ -52,6 +53,8 @@ static void init ()
       nextphi[idx] = phi[idx];
     }
   }
+  play = 0;
+  speed_factor = 1.0;
 }
 
 
@@ -81,7 +84,14 @@ static void update_boundaries ()
 
 static void update_speed ()
 {
-  //  size_t ii, jj;
+  size_t ii, jj;
+  
+  for (ii = 1; ii < NX; ++ii) {
+    for (jj = 1; jj < NY; ++jj) {
+      const size_t idx = cidx(ii, jj);
+      speed[idx] = speed_factor * (0.5 + 0.5 * cos (2.0 * atan2(diffy[idx], diffx[idx])));
+    }
+  }
 }
 
 
@@ -123,6 +133,10 @@ static void update ()
     }
   }
   
+  //////////////////////////////////////////////////
+  
+  update_speed ();
+  
   //////////////////////////////////////////////////  
   // update upwind gradient
   
@@ -141,10 +155,6 @@ static void update ()
     }
   }
   
-  //////////////////////////////////////////////////
-  
-  update_speed ();
-  
   //////////////////////////////////////////////////  
   // compute next phi
   
@@ -161,11 +171,7 @@ static void update ()
 
 void cb_reverse (GtkWidget * ww, gpointer data)
 {
-  int ii;
-  const double ss = - speed[0];
-  for (ii = 0; ii < NTT; ++ii) {
-    speed[ii] = ss;
-  }
+  speed_factor = - speed_factor;
 }
 
 
