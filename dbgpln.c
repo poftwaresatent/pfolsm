@@ -273,12 +273,7 @@ gint cb_phi_click (GtkWidget * ww,
   gdouble const cx = (bb->x - phi_x0) / phi_sx + 0.5;
   gdouble const cy = (bb->y - phi_y0) / phi_sy + 0.5;
   
-  //// size_t dbg1 = 0;
-  //// size_t dbg2 = 0;
-  //// size_t dbg3 = 0;
-  //// size_t dbg4 = 0;
-  ////  fprintf (stderr, "cb_phi_click\n  mouse: %g %g\n  logical: %g %g\n", bb->x, bb->y, cx, cy);
-  
+  //// option 1: just reinitialize at click
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
       double const dd = sqrt (pow (cx - ii, 2.0) + pow (cy - jj, 2.0)) - 4.0;
@@ -288,8 +283,7 @@ gint cb_phi_click (GtkWidget * ww,
     }
   }
   
-  //// second try... for some reason the local maxima did not properly
-  //// evolve, and there were some interesting grid effects.
+  //// option 2: use min of existing phi and one centered around the click
   // for (ii = 1; ii <= DIMX; ++ii) {
   //   for (jj = 1; jj <= DIMY; ++jj) {
   //     double const dd = sqrt (pow (cx - ii, 2.0) + pow (cy - jj, 2.0)) - 2.0;
@@ -328,8 +322,6 @@ gint cb_phi_click (GtkWidget * ww,
   //     nextphi[idx] = aa * (dd - 2.0) + (1.0 - aa) * nextphi[idx];
   //   }
   // }
-  
-  ////  fprintf (stderr, "  modified: %zu / %zu / %zu\n  untouched: %zu\n", dbg1, dbg2, dbg3, dbg4);
   
   gtk_widget_queue_draw (w_phi);
   
