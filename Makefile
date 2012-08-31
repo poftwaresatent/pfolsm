@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -Wall -O0 -g -pipe
 
 #all: test lsmgtk dbglin dbgpln
-all: dbgpln
+all: dbgpln noniso
 
 pfolsm.o: pfolsm.c pfolsm.h Makefile
 
@@ -22,5 +22,8 @@ dbgpln: dbgpln.c Makefile
 click: click.c Makefile
 	$(CC) $(CFLAGS) -o click click.c `pkg-config --cflags gtk+-2.0` `pkg-config --libs gtk+-2.0`
 
+noniso: noniso.c Makefile
+	$(CC) $(CFLAGS) -o noniso noniso.c 
+
 clean:
-	rm -rf *~ *.o lsmgtk dbglin dbgpln click test *.dSYM
+	rm -rf *~ *.o *.dSYM lsmgtk dbglin dbgpln click test noniso

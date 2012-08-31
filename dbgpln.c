@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 
-#define DIMX 60
-#define DIMY 60
+#define DIMX 100
+#define DIMY 100
 #define NX (DIMX + 2)
 #define NY (DIMY + 2)
 #define NTT (NX * NY)
@@ -14,9 +14,12 @@ static double phi[NTT];
 static double nextphi[NTT];
 static double diffx[NTT];
 static double diffy[NTT];
-static double gradx[NTT];
-static double grady[NTT];
-static double nabla[NTT];
+static double gradxp[NTT];	/* gradient x component for positive speeds */
+static double gradyp[NTT];	/* gradient y component for positive speeds */
+static double nablap[NTT];	/* gradient magnitude for positive speeds */
+static double gradxm[NTT];	/* gradient x component for negative speeds */
+static double gradym[NTT];	/* gradient y component for negative speeds */
+static double nablam[NTT];	/* gradient magnitude for negative speeds */
 static double speed[NTT];
 
 static GtkWidget * w_phi;
@@ -41,9 +44,12 @@ static void init ()
     nextphi[ii] = NAN;
     diffx[ii] = NAN;
     diffy[ii] = NAN;
-    gradx[ii] = NAN;
-    grady[ii] = NAN;
-    nabla[ii] = NAN;
+    gradxp[ii] = NAN;
+    gradyp[ii] = NAN;
+    nablap[ii] = NAN;
+    gradxm[ii] = NAN;
+    gradym[ii] = NAN;
+    nablam[ii] = NAN;
     speed[ii] = 1.0;
   }
   for (ii = 1; ii <= DIMX; ++ii) {
@@ -58,12 +64,27 @@ static void init ()
 }
 
 
-static double max3 (double aa, double bb, double cc)
+static double upwind (double d0, double d1)
 {
-  if (aa > bb) {
-    return aa > cc ? aa : cc;
+  if (d0 > 0.0) {
+    if (d1 < 0.0) {
+      return d0 > -d1 ? d0 : d1;
+    }
+    return d0;
   }
-  return bb > cc ? bb : cc;
+  return d1 < 0.0 ? d1 : 0.0;
+}
+
+
+static double downwind (double d0, double d1)
+{
+  if (d0 < 0.0) {
+    if (d1 > 0.0) {
+      return -d0 > d1 ? d0 : d1;
+    }
+    return d0;
+  }
+  return d1 > 0.0 ? d1 : 0.0;
 }
 
 
@@ -82,15 +103,129 @@ static void update_boundaries ()
 }
 
 
+/**
+   C-spline with horizontal tangents between two interpolation points.
+   p0 is the value at x0, p1 is the value at x1, and the function
+   returns the interpolated value at xx.  The caller is responsible
+   for ensuring that x1 > x0.  Also, if xx lies outside that range,
+   you'll probably get useless values.
+*/
+static double hcspline (double p0, double p1, double x0, double x1, double xx)
+{
+  double const tt = (xx - x0) / (x1 - x0);
+  return (2 * tt - 3) * (p0 - p1) * tt * tt + p0;
+}
+
+
+/**
+   Compute sailboat speed by using the piecewise-cubic interpolation
+   provided by hcspline.  The caller specifies a table of angles and
+   velocities: for each atab value, the boat would go with the speed
+   of the corresponding vtab value.  This function only considers the
+   absolute value of the angle.  For angles smaller than the first
+   atab value, it simply returns the first vtab value.  Likewise, if
+   the angle is bigger than the last atab value, the last vtab value
+   is returned.
+*/
+static double compute_speed (double angle,
+			     double * atab,
+			     double * vtab,
+			     int tablen)
+{
+  int ii;
+  if (tablen < 1) {
+    return 0.0;
+  }
+  if (tablen < 2) {
+    return vtab[0];
+  }
+  
+  angle = fabs(angle);
+  if (angle < atab[0]) {
+    return vtab[0];
+  }
+  
+  for (ii = 1; ii < tablen; ++ii) {
+    if (angle <= atab[ii]) {
+      return hcspline(vtab[ii-1], vtab[ii], atab[ii-1], atab[ii], angle);
+    }
+  }
+  
+  return vtab[tablen - 1];
+}
+
+
+static double modangle (double angle)
+{
+  angle = fmod(angle, 2 * M_PI);
+  if (angle > M_PI) {
+    angle -= 2*M_PI;
+  }
+  else if (angle < -M_PI) {
+    angle += 2*M_PI;
+  }
+  return angle;
+}
+
+
+#define D2R (M_PI / 180.0)
+
 static void update_speed ()
 {
+  /* gentle "egg" */
+  /* static double atab[] = { 0.0, M_PI/2, M_PI }; */
+  /* static double vtab[] = { 0.7,    1.0, 0.95 }; */
+  
+  /* static double atab[] = { M_PI/4, M_PI/4+0.01, M_PI/2, 5*M_PI/6, M_PI }; */
+  /* static double vtab[] = {    0.2,         0.7,    1.0,      0.8,  0.6 }; */
+  
+  static double atab[] = { 30.0 *D2R,  45.0 *D2R,  100.0 *D2R,  150.0 *D2R, 180.0 *D2R };
+  static double vtab[] = {  0.4,        0.9,         1.0,         0.9,        0.7      };
+  
+  static int const tablen = sizeof(atab) / sizeof(atab[0]);
+  
   size_t ii, jj;
   
-  for (ii = 1; ii < NX; ++ii) {
-    for (jj = 1; jj < NY; ++jj) {
+  for (ii = 1; ii <= DIMX; ++ii) {
+    for (jj = 1; jj <= DIMY; ++jj) {
       const size_t idx = cidx(ii, jj);
-      speed[idx] = speed_factor * (0.1 + 0.9 * pow(sin(4 * M_PI * jj / NY), 2));
-      // * (0.5 + 0.5 * cos (2.0 * atan2(diffy[idx], diffx[idx])));
+      double speedp, speedm;
+      
+      /* cute little test */
+      /* speedp = 0.4 + gradxp[idx]; */
+      /* speedm = 0.4 + gradxm[idx]; */
+      
+      /* the original trials (and tribulations) and they still behave weirdly */
+      /* speedp = 0.5 + 0.5 * cos (2.0 * atan2(gradyp[idx], gradxp[idx])); */
+      /* speedm = 0.5 + 0.5 * cos (2.0 * atan2(gradym[idx], gradxm[idx])); */
+      
+      /* using the cubic hermite spline with horizontal slopes ... */
+      speedp = compute_speed(modangle(atan2(gradyp[idx], gradxp[idx])), atab, vtab, tablen);
+      speedm = compute_speed(modangle(atan2(gradym[idx], gradxm[idx])), atab, vtab, tablen);
+      
+      if (speed_factor < 0.0) {
+	double tmp = speedp;
+	speedp = -speedm;
+	speedm = -tmp;
+      }
+      
+      if (speedp > 0.0) {
+	if (speedm > 0.0 || fabs(speedm) < speedp) {
+	  speed[idx] = speed_factor * speedp;
+	}
+	else {
+	  speed[idx] = speed_factor * speedm;
+	}
+      }
+      else {
+	if (speedm < 0.0) {
+	  speed[idx] = speed_factor * speedm;
+	}
+	else {
+	  speed[idx] = 0.0;
+	}
+      }
+      
     }
   }
 }
@@ -136,12 +271,29 @@ static void update ()
     }
   }
   
+  //////////////////////////////////////////////////  
+  // update upwind gradients (for positive and negative speeds)
+  
+  for (ii = 1; ii <= DIMX; ++ii) {
+    for (jj = 1; jj <= DIMY; ++jj) {
+      const size_t idx = cidx(ii, jj);
+      gradxp[idx] = upwind(diffx[idx], diffx[cidx(ii+1, jj)]);
+      gradyp[idx] = upwind(diffy[idx], diffy[cidx(ii, jj+1)]);
+      gradxm[idx] = downwind(diffx[idx], diffx[cidx(ii+1, jj)]);
+      gradym[idx] = downwind(diffy[idx], diffy[cidx(ii, jj+1)]);
+      nablap[idx] = sqrt(pow(gradxp[idx], 2.0) + pow(gradyp[idx], 2.0));
+      nablam[idx] = sqrt(pow(gradxm[idx], 2.0) + pow(gradym[idx], 2.0));
+    }
+  }
+  
   //////////////////////////////////////////////////
+  // Note that the speed compuations depend on gradxp, gradyp, gradxm,
+  // gradym above (at least for direction-dependend speed maps).
   
   update_speed ();
   
-  //////////////////////////////////////////////////  
-  // update upwind gradient
+  //////////////////////////////////////////////////
+  // Update rubber time factor
   
   snmax = 0.0;
   for (ii = 1; ii <= DIMX; ++ii) {
@@ -149,15 +301,11 @@ static void update ()
       const size_t idx = cidx(ii, jj);
       double sn;
       if (speed[idx] > 0.0) {
-	gradx[idx] = max3(diffx[idx], -diffx[cidx(ii+1, jj)], 0.0);
-	grady[idx] = max3(diffy[idx], -diffy[cidx(ii, jj+1)], 0.0);
+	sn = nablap[idx] * speed[idx];
       }
       else {
-	gradx[idx] = max3(-diffx[idx], diffx[cidx(ii+1, jj)], 0.0);
-	grady[idx] = max3(-diffy[idx], diffy[cidx(ii, jj+1)], 0.0);
+	sn = - nablam[idx] * speed[idx];
       }
-      nabla[idx] = sqrt(pow(gradx[idx], 2.0) + pow(grady[idx], 2.0));
-      sn = fabs(nabla[idx] * speed[idx]);
       if (sn > snmax) {
 	snmax = sn;
       }
@@ -167,12 +315,17 @@ static void update ()
   //////////////////////////////////////////////////  
   // compute next phi
   
-  if (snmax > 0.0) {		/* should never happen */
+  if (snmax > 0.0) {		/* should always happen, otherwise we're stuck */
     dt = dphimax / snmax;	/* rubber time */
     for (ii = 1; ii <= DIMX; ++ii) {
       for (jj = 1; jj <= DIMY; ++jj) {
 	const size_t idx = cidx(ii, jj);
-	nextphi[idx] = phi[idx] - dt * speed[idx] * nabla[idx];
+	if (speed[idx] > 0.0) {
+	  nextphi[idx] = phi[idx] - dt * speed[idx] * nablap[idx];
+	}
+	else {
+	  nextphi[idx] = phi[idx] - dt * speed[idx] * nablam[idx];
+	}
       }
     }
   }
