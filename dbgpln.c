@@ -97,7 +97,9 @@ static void update_speed ()
 
 static void update ()
 {
-  static const double dt = 0.005;
+  static const double dphimax = 0.1;
+  double snmax;
+  double dt;
   size_t ii, jj;
   
   //////////////////////////////////////////////////
@@ -140,10 +142,12 @@ static void update ()
   //////////////////////////////////////////////////  
   // update upwind gradient
   
+  snmax = 0.0;
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
       const size_t idx = cidx(ii, jj);
-      if (speed[ii] > 0.0) {
+      double sn;
+      if (speed[idx] > 0.0) {
 	gradx[idx] = max3(diffx[idx], -diffx[cidx(ii+1, jj)], 0.0);
 	grady[idx] = max3(diffy[idx], -diffy[cidx(ii, jj+1)], 0.0);
       }
@@ -152,16 +156,23 @@ static void update ()
 	grady[idx] = max3(-diffy[idx], diffy[cidx(ii, jj+1)], 0.0);
       }
       nabla[idx] = sqrt(pow(gradx[idx], 2.0) + pow(grady[idx], 2.0));
+      sn = fabs(nabla[idx] * speed[idx]);
+      if (sn > snmax) {
+	snmax = sn;
+      }
     }
   }
   
   //////////////////////////////////////////////////  
   // compute next phi
   
-  for (ii = 1; ii <= DIMX; ++ii) {
-    for (jj = 1; jj <= DIMY; ++jj) {
-      const size_t idx = cidx(ii, jj);
-      nextphi[idx] = phi[idx] - dt * speed[idx] * nabla[idx];
+  if (snmax > 0.0) {		/* should never happen */
+    dt = dphimax / snmax;	/* rubber time */
+    for (ii = 1; ii <= DIMX; ++ii) {
+      for (jj = 1; jj <= DIMY; ++jj) {
+	const size_t idx = cidx(ii, jj);
+	nextphi[idx] = phi[idx] - dt * speed[idx] * nabla[idx];
+      }
     }
   }
   
