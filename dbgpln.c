@@ -89,7 +89,8 @@ static void update_speed ()
   for (ii = 1; ii < NX; ++ii) {
     for (jj = 1; jj < NY; ++jj) {
       const size_t idx = cidx(ii, jj);
-      speed[idx] = speed_factor;// * (0.5 + 0.5 * cos (2.0 * atan2(diffy[idx], diffx[idx])));
+      speed[idx] = speed_factor * (0.1 + 0.9 * pow(sin(4 * M_PI * jj / NY), 2));
+      // * (0.5 + 0.5 * cos (2.0 * atan2(diffy[idx], diffx[idx])));
     }
   }
 }
