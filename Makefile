@@ -23,4 +23,4 @@ click: click.c Makefile
 	$(CC) $(CFLAGS) -o click click.c `pkg-config --cflags gtk+-2.0` `pkg-config --libs gtk+-2.0`
 
 clean:
-	rm -f *~ *.o lsmgtk dbglin dbgpln click test
+	rm -rf *~ *.o lsmgtk dbglin dbgpln click test *.dSYM
