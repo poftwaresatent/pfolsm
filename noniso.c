@@ -61,16 +61,11 @@ int main (int argc, char ** argv)
   double theta, windDirection;
   char separator = ' ';
   
-  /* BEWARE of deg2rad below double atab[] = { 0.0, M_PI/2, M_PI }; */
-  /* double vtab[] = { 0.7,    1.0, 0.95 }; */
-  
-  /* BEWARE of deg2rad below double atab[] = { M_PI/4, M_PI/4+0.01, M_PI/2, 5*M_PI/6, M_PI }; */
-  /* double vtab[] = {    0.2,         0.7,    1.0,      0.8,  0.6 }; */
-
-  double atab[] = { 30.0 *D2R,  45.0 *D2R,  100.0 *D2R,  150.0 *D2R, 180.0 *D2R };
-  double vtab[] = {  0.4,        0.9,         1.0,         0.9,        0.7      };
-
-  int tablen = sizeof(atab) / sizeof(atab[0]);
+  /* static double atab[] = { 45.0 *D2R,  100.0 *D2R,  150.0 *D2R, 180.0 *D2R }; */
+  /* static double vtab[] = {  0.0,         1.0,         0.8,        0.3      }; */
+  static double atab[] = { 15.0 *D2R,  100.0 *D2R };
+  static double vtab[] = {  1.0,        0.0      };
+  static int tablen = sizeof(atab) / sizeof(atab[0]);
   
   //  for (windDirection = 0; windDirection <= M_PI/2; windDirection += M_PI/8) {
   windDirection = 0;

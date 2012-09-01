@@ -9,6 +9,13 @@
 #define NY (DIMY + 2)
 #define NTT (NX * NY)
 
+#define D2R (M_PI / 180.0)
+
+typedef enum {
+  PHI,
+  SPEED,
+  NGFXMODES
+} gfxmode_t;
 
 static double phi[NTT];
 static double nextphi[NTT];
@@ -26,8 +33,9 @@ static GtkWidget * w_phi;
 static gint w_phi_width, w_phi_height;
 static gint phi_sx, phi_sy, phi_x0, phi_y0;
 static double phimin, phimax;
+static double speedmin, speedmax;
 static int play;
-static double speed_factor;
+static gfxmode_t gfxmode;
 
 
 static size_t cidx (size_t ii, size_t jj)
@@ -60,7 +68,7 @@ static void init ()
     }
   }
   play = 0;
-  speed_factor = 1.0;
+  gfxmode = PHI;
 }
 
 
@@ -118,16 +126,17 @@ static double hcspline (double p0, double p1, double x0, double x1, double xx)
 
 
 /**
-   Compute sailboat speed by using the piecewise-cubic interpolation
-   provided by hcspline.  The caller specifies a table of angles and
-   velocities: for each atab value, the boat would go with the speed
-   of the corresponding vtab value.  This function only considers the
-   absolute value of the angle.  For angles smaller than the first
-   atab value, it simply returns the first vtab value.  Likewise, if
-   the angle is bigger than the last atab value, the last vtab value
-   is returned.
+   Symmetric polar piecewise-cubic interpolation based on hcspline.
+   The caller specifies a table of angles and values.  This function
+   only considers the absolute value of the angle.  For angles smaller
+   than the first atab value, it simply returns the first vtab value.
+   Likewise, if the angle is bigger than the last atab value, the last
+   vtab value is returned.
+   
+   \note Make sure that angle is in the range [-pi,+pi] otherwise
+   you'll probably get just the first or last table value.
 */
-static double compute_speed (double angle,
+static double sym_polar_hcspline (double angle,
 			     double * atab,
 			     double * vtab,
 			     int tablen)
@@ -155,22 +164,7 @@ static double compute_speed (double angle,
 }
 
 
-static double modangle (double angle)
-{
-  angle = fmod(angle, 2 * M_PI);
-  if (angle > M_PI) {
-    angle -= 2*M_PI;
-  }
-  else if (angle < -M_PI) {
-    angle += 2*M_PI;
-  }
-  return angle;
-}
-
-
-#define D2R (M_PI / 180.0)
-
-static void update_speed ()
+static double max_speed (double gradx, double grady)
 {
   /* gentle "egg" */
   /* static double atab[] = { 0.0, M_PI/2, M_PI }; */
@@ -179,12 +173,71 @@ static void update_speed ()
   /* static double atab[] = { M_PI/4, M_PI/4+0.01, M_PI/2, 5*M_PI/6, M_PI }; */
   /* static double vtab[] = {    0.2,         0.7,    1.0,      0.8,  0.6 }; */
   
-  static double atab[] = { 30.0 *D2R,  45.0 *D2R,  100.0 *D2R,  150.0 *D2R, 180.0 *D2R };
-  static double vtab[] = {  0.4,        0.9,         1.0,         0.9,        0.7      };
+  /* static double atab[] = { 30.0 *D2R,  45.0 *D2R,  100.0 *D2R,  150.0 *D2R, 180.0 *D2R }; */
+  /* static double vtab[] = {  -0.1,        0.9,         1.0,         0.9,        0.7      }; */
   
-  static int const tablen = sizeof(atab) / sizeof(atab[0]);
+  static double atab_vel[] = { 45.0 *D2R,  100.0 *D2R,  150.0 *D2R, 180.0 *D2R };
+  static double vtab_vel[] = {  0.0,         1.0,         0.8,        0.3      };
+  static int const len_vel = sizeof(atab_vel) / sizeof(atab_vel[0]);
+
+  static double atab_pen[] = { 15.0 *D2R,  100.0 *D2R };
+  static double vtab_pen[] = {  1.0,        0.0      };
+  static int const len_pen = sizeof(atab_pen) / sizeof(atab_pen[0]);
   
+  // first do a stupid brute force approximation, later implement
+  // something smarter like Newton's minimization or maybe we can even
+  // find a closed-form solution (influences choice of velocity
+  // diagram model).
+  double phi;
+  double gradl;
+  double fmax;
+  double alpha;
+  
+  gradl = sqrt(pow(gradx, 2) + pow(grady, 2));
+  if (gradl < 1e-4) {
+    return 0;
+  }
+  gradx /= gradl;
+  grady /= gradl;
+  alpha = atan2(grady, gradx);
+  
+  fmax
+    = sym_polar_hcspline(-M_PI, atab_vel, vtab_vel, len_vel)
+    * gradx
+    * sym_polar_hcspline(alpha + M_PI, atab_pen, vtab_pen, len_pen);
+  for (phi = -M_PI + M_PI/18; phi < M_PI; phi += M_PI/18) {
+    double ff
+      = sym_polar_hcspline(phi, atab_vel, vtab_vel, len_vel)
+      * (cos(phi) * gradx + sin(phi) * grady)
+      * sym_polar_hcspline(alpha - phi, atab_pen, vtab_pen, len_pen);
+    if (ff > fmax) {
+      fmax = ff;
+    }
+  }
+  
+  return fmax;
+}
+
+
+/* static double modangle (double angle) */
+/* { */
+/*   angle = fmod(angle, 2 * M_PI); */
+/*   if (angle > M_PI) { */
+/*     angle -= 2*M_PI; */
+/*   } */
+/*   else if (angle < -M_PI) { */
+/*     angle += 2*M_PI; */
+/*   } */
+/*   return angle; */
+/* } */
+
+
+static void update_speed ()
+{
   size_t ii, jj;
+  
+  speedmax = NAN;
+  speedmin = NAN;
   
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
@@ -200,34 +253,37 @@ static void update_speed ()
       /* speedm = 0.5 + 0.5 * cos (2.0 * atan2(gradym[idx], gradxm[idx])); */
       
       /* using the cubic hermite spline with horizontal slopes ... */
-      speedp = compute_speed(modangle(atan2(gradyp[idx], gradxp[idx])), atab, vtab, tablen);
-      speedm = compute_speed(modangle(atan2(gradym[idx], gradxm[idx])), atab, vtab, tablen);
-      
-      if (speed_factor < 0.0) {
-	double tmp = speedp;
-	speedp = -speedm;
-	speedm = -tmp;
-      }
+      speedp = max_speed(gradyp[idx], gradxp[idx]);
+      speedm = max_speed(gradym[idx], gradxm[idx]);
       
       if (speedp > 0.0) {
 	if (speedm > 0.0 || fabs(speedm) < speedp) {
-	  speed[idx] = speed_factor * speedp;
+	  speed[idx] = speedp;
 	}
 	else {
-	  speed[idx] = speed_factor * speedm;
+	  speed[idx] = speedm;
 	}
       }
       else {
 	if (speedm < 0.0) {
-	  speed[idx] = speed_factor * speedm;
+	  speed[idx] = speedm;
 	}
 	else {
 	  speed[idx] = 0.0;
 	}
       }
       
+      if (isnan(speedmax) || speed[idx] > speedmax) {
+	speedmax = speed[idx];
+      }
+      if (isnan(speedmin) || speed[idx] < speedmin) {
+	speedmin = speed[idx];
+      }
+      
     }
   }
+  
+  printf ("dbg update_speed(): min %f  max %f\n", speedmin, speedmax);
 }
 
 
@@ -334,9 +390,12 @@ static void update ()
 }
 
 
-void cb_reverse (GtkWidget * ww, gpointer data)
+void cb_gfxmode (GtkWidget * ww, gpointer data)
 {
-  speed_factor = - speed_factor;
+  ++gfxmode;
+  gfxmode %= NGFXMODES;
+  
+  gtk_widget_queue_draw (w_phi);
 }
 
 
@@ -388,14 +447,31 @@ gint cb_phi_expose (GtkWidget * ww,
   cairo_rectangle (cr, phi_x0 - 2, phi_y0 + 2, DIMX * phi_sx + 4, DIMY * phi_sy - 4);
   cairo_stroke (cr);
   
+  double valmin, valmax;
+  double * val;
+  switch (gfxmode) {
+  case PHI:
+    valmin = phimin;
+    valmax = phimax;
+    val = phi;
+    break;
+  case SPEED:
+    valmin = speedmin;
+    valmax = speedmax;
+    val = speed;
+    break;
+  default:
+    errx (42, "bug: invalid gfxmode");
+  };
+  
   for (ii = 1; ii <= DIMX; ++ii) {
     for (jj = 1; jj <= DIMY; ++jj) {
-      const double pp = phi[cidx(ii, jj)];
-      if (pp >= 0.0) {
-  	cairo_set_source_rgb (cr, 0.0, 1.0 - pp / phimax, 0.0);
+      const double vv = val[cidx(ii, jj)];
+      if (vv >= 0.0) {
+  	cairo_set_source_rgb (cr, 0.0, 1.0 - vv / valmax, 0.0);
       }
       else {
-  	cairo_set_source_rgb (cr, 1.0 + pp / phimax, 0.0, 0.0);
+  	cairo_set_source_rgb (cr, 1.0 + vv / valmax, 0.0, 0.0);
       }
       cairo_rectangle (cr, phi_x0 + (ii-1) * phi_sx, phi_y0 + jj * phi_sy, phi_sx, - phi_sy);
       cairo_fill (cr);
@@ -538,8 +614,8 @@ int main (int argc, char ** argv)
   gtk_widget_show (hbox);
 
   
-  btn = gtk_button_new_with_label ("reverse");
-  g_signal_connect (btn, "clicked", G_CALLBACK (cb_reverse), NULL);
+  btn = gtk_button_new_with_label ("gfxmode");
+  g_signal_connect (btn, "clicked", G_CALLBACK (cb_gfxmode), NULL);
   gtk_box_pack_start (GTK_BOX (hbox), btn, TRUE, TRUE, 0);
   gtk_widget_show (btn);
   
