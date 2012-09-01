@@ -164,6 +164,19 @@ static double sym_polar_hcspline (double angle,
 }
 
 
+static double modangle (double angle)
+{
+  angle = fmod(angle, 2 * M_PI);
+  if (angle > M_PI) {
+    angle -= 2*M_PI;
+  }
+  else if (angle < -M_PI) {
+    angle += 2*M_PI;
+  }
+  return angle;
+}
+
+
 static double max_speed (double gradx, double grady)
 {
   /* gentle "egg" */
@@ -217,19 +230,6 @@ static double max_speed (double gradx, double grady)
   
   return fmax;
 }
-
-
-/* static double modangle (double angle) */
-/* { */
-/*   angle = fmod(angle, 2 * M_PI); */
-/*   if (angle > M_PI) { */
-/*     angle -= 2*M_PI; */
-/*   } */
-/*   else if (angle < -M_PI) { */
-/*     angle += 2*M_PI; */
-/*   } */
-/*   return angle; */
-/* } */
 
 
 static void update_speed ()
