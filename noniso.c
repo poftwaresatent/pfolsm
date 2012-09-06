@@ -91,18 +91,52 @@ static double compute_speed (double alpha, double phi)
 }
 
 
+static double simple_speed (double gradx, double grady)
+{
+  /* gentle "egg" */
+  /* static double atab_vel[] = { 0.0, M_PI/2, M_PI }; */
+  /* static double vtab_vel[] = { 0.7,    1.0, 0.95 }; */
+
+  /* egg with slight concavity */
+  static double atab_vel[] = { 0.0, M_PI/2, M_PI };
+  static double vtab_vel[] = { 0.4,    1.0, 0.95 };
+
+  /* more realistic but extreme concavities and discontinuities */
+  /* static double atab_vel[] = { M_PI/4, M_PI/4+0.01, M_PI/2, 5*M_PI/6, M_PI }; */
+  /* static double vtab_vel[] = {    0.2,         0.7,    1.0,      0.8,  0.6 }; */
+  
+  static int const len_vel = sizeof(atab_vel) / sizeof(atab_vel[0]);
+  
+  double gradl;
+  double alpha;
+  
+  gradl = sqrt(pow(gradx, 2) + pow(grady, 2));
+  if (gradl < 1e-4) {
+    return 0;
+  }
+  gradx /= gradl;
+  grady /= gradl;
+  alpha = atan2(grady, gradx);
+  
+  return sym_polar_hcspline(alpha, atab_vel, vtab_vel, len_vel);
+}
+
+
 int main (int argc, char ** argv) 
 {
   double phi, alpha;
   char separator = ' ';
   
-  for (alpha = 0.0; alpha < M_PI; alpha += 10 *D2R) {
+  /* for (alpha = 0.0; alpha < M_PI; alpha += 10 *D2R) { */
+  {alpha = 0.0;
+    
     printf ("#gradient angle %f rad = %f deg\n", alpha, alpha/D2R);
     for (phi = -M_PI; phi < M_PI; phi += M_PI/100.0) {
       printf ("%f%c %f%c %f\n",
 	      alpha, separator,
 	      phi, separator,
-	      compute_speed (alpha, phi)
+	      /* compute_speed (alpha, phi) */
+	      simple_speed (cos(phi), sin(phi))
 	      );
     }
     printf ("\n\n");

@@ -232,6 +232,37 @@ static double max_speed (double gradx, double grady)
 }
 
 
+static double simple_speed (double gradx, double grady)
+{
+  /* gentle "egg" */
+  /* static double atab_vel[] = { 0.0, M_PI/2, M_PI }; */
+  /* static double vtab_vel[] = { 0.7,    1.0, 0.95 }; */
+
+  /* egg with slight concavity */
+  static double atab_vel[] = { 0.0, M_PI/2, M_PI };
+  static double vtab_vel[] = { 0.4,    1.0, 0.95 };
+  
+  /* more realistic but extreme concavities and discontinuities */
+  /* static double atab_vel[] = { M_PI/4, M_PI/4+0.01, M_PI/2, 5*M_PI/6, M_PI }; */
+  /* static double vtab_vel[] = {    0.2,         0.7,    1.0,      0.8,  0.6 }; */
+  
+  static int const len_vel = sizeof(atab_vel) / sizeof(atab_vel[0]);
+  
+  double gradl;
+  double alpha;
+  
+  gradl = sqrt(pow(gradx, 2) + pow(grady, 2));
+  if (gradl < 1e-4) {
+    return 0;
+  }
+  gradx /= gradl;
+  grady /= gradl;
+  alpha = atan2(grady, gradx);
+  
+  return sym_polar_hcspline(alpha, atab_vel, vtab_vel, len_vel);
+}
+
+
 static void update_speed ()
 {
   size_t ii, jj;
@@ -252,9 +283,10 @@ static void update_speed ()
       /* speedp = 0.5 + 0.5 * cos (2.0 * atan2(gradyp[idx], gradxp[idx])); */
       /* speedm = 0.5 + 0.5 * cos (2.0 * atan2(gradym[idx], gradxm[idx])); */
       
-      /* using the cubic hermite spline with horizontal slopes ... */
-      speedp = max_speed(gradyp[idx], gradxp[idx]);
-      speedm = max_speed(gradym[idx], gradxm[idx]);
+      /* speedp = max_speed(gradxp[idx], gradyp[idx]); */
+      /* speedm = max_speed(gradxm[idx], gradym[idx]); */
+      speedp = simple_speed(gradxp[idx], gradyp[idx]);
+      speedm = simple_speed(gradxm[idx], gradym[idx]);
       
       if (speedp > 0.0) {
 	if (speedm > 0.0 || fabs(speedm) < speedp) {
