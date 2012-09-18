@@ -17,13 +17,13 @@ dbglin: dbglin.c Makefile
 	$(CC) $(CFLAGS) -o dbglin dbglin.c `pkg-config --cflags gtk+-2.0` `pkg-config --libs gtk+-2.0`
 
 dbgpln: dbgpln.c Makefile
-	$(CC) $(CFLAGS) -o dbgpln dbgpln.c `pkg-config --cflags gtk+-2.0` `pkg-config --libs gtk+-2.0`
+	$(CC) $(CFLAGS) -o dbgpln dbgpln.c `pkg-config --cflags gtk+-2.0` `pkg-config --libs gtk+-2.0` -lm
 
 click: click.c Makefile
 	$(CC) $(CFLAGS) -o click click.c `pkg-config --cflags gtk+-2.0` `pkg-config --libs gtk+-2.0`
 
 noniso: noniso.c Makefile
-	$(CC) $(CFLAGS) -o noniso noniso.c 
+	$(CC) $(CFLAGS) -o noniso noniso.c -lm
 
 clean:
 	rm -rf *~ *.o *.dSYM lsmgtk dbglin dbgpln click test noniso
